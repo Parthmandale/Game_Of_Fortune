@@ -85,6 +85,7 @@ contract RaffleTest is StdCheats, Test {
         raffle.enterRaffle{value: raffleEntranceFee}();
     }
 
+    // raffle.performUpkeep(""); is been called by which address? bcoz PLAYER add can be only used once
     function testDontAllowPlayersToEnterWhileRaffleIsCalculating() public {
         // Arrange
         vm.prank(PLAYER);
@@ -108,34 +109,50 @@ contract RaffleTest is StdCheats, Test {
         vm.roll(block.number + 1);
 
         // Act
-        (bool upkeepNeeded, ) = raffle.checkUpkeep("");
+        (bool upkeepNeeded, ) = raffle.checkUpkeep(""); // empty parameter because we dont use it
 
         // Assert
-        assert(!upkeepNeeded);
+        assert(!upkeepNeeded); //false
     }
 
-    function testCheckUpkeepReturnsFalseIfRaffleIsntOpen() public {
+    // why capital Raffle. ?
+    function testCheckUpkeepReturnsFalseIfRaffleIsnotOpen() public {
         // Arrange
         vm.prank(PLAYER);
-        raffle.enterRaffle{value: raffleEntranceFee}();
+        raffle.enterRaffle{value: raffleEntranceFee}(); // as this function is been called means here raffle is OPEN
         vm.warp(block.timestamp + automationUpdateInterval + 1);
         vm.roll(block.number + 1);
-        raffle.performUpkeep("");
+        raffle.performUpkeep(""); // as this function is been called means here raffle is CLOSED
+
+        // doubt in this line - why capital Raffle. ? - bcoz it is a calling enum named RaffleState
         Raffle.RaffleState raffleState = raffle.getRaffleState();
         // Act
+        // DOUBT - WHO IS CALLING THIS FUNCTION??
+
+        // WHY IS HERE BOOL UPKEEDNEEDED IS NEEDED? IT IS BECAUSE WE ARE RETURNING TWO VALUES FROM THE FUNCTION, AND SECOND IS //EMPTY
         (bool upkeepNeeded, ) = raffle.checkUpkeep("");
         // Assert
-        assert(raffleState == Raffle.RaffleState.CALCULATING);
+        assert(raffleState == Raffle.RaffleState.CALCULATING); // while calling enum we need to use real name of contract which here is Raffle
         assert(upkeepNeeded == false);
     }
 
     // Can you implement this?
-    function testCheckUpkeepReturnsFalseIfEnoughTimeHasntPassed() public {}
+    function testCheckUpkeepReturnsFalseIfEnoughTimeHasntPassed() public {
+        //Arrange
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: raffleEntranceFee}(); // as this function is been called means here raffle is OPEN
+        // Act
+        (bool upkeepNeeded, ) = raffle.checkUpkeep("");
+
+        //Assert
+        assert(!upkeepNeeded); // false BECAUSE bool timePassed = ((block.timestamp - s_lastTimeStamp) < i_interval); MEANS TIME HAS NOT PASSED YET
+    }
 
     function testCheckUpkeepReturnsTrueWhenParametersGood() public {
+        // openState.Open, balance > 0, players.length > 0, timePassed more
         // Arrange
         vm.prank(PLAYER);
-        raffle.enterRaffle{value: raffleEntranceFee}();
+        raffle.enterRaffle{value: raffleEntranceFee}(); // as this function is been called means here raffle is OPEN
         vm.warp(block.timestamp + automationUpdateInterval + 1);
         vm.roll(block.number + 1);
 
@@ -153,30 +170,32 @@ contract RaffleTest is StdCheats, Test {
     function testPerformUpkeepCanOnlyRunIfCheckUpkeepIsTrue() public {
         // Arrange
         vm.prank(PLAYER);
-        raffle.enterRaffle{value: raffleEntranceFee}();
+        raffle.enterRaffle{value: raffleEntranceFee}(); // as this function is been called means here raffle is OPEN
         vm.warp(block.timestamp + automationUpdateInterval + 1);
         vm.roll(block.number + 1);
 
         // Act / Assert
-        // It doesnt revert
+        // It doesnt revert -> because we are satisfying the condition of checkUpkeep
         raffle.performUpkeep("");
     }
 
     function testPerformUpkeepRevertsIfCheckUpkeepIsFalse() public {
         // Arrange
+        // we are making this variable because we are not satisfying the condition of checkUpkeep
+        // and also because we have to pass them as parameter in the vm.expectRevert()
         uint256 currentBalance = 0;
         uint256 numPlayers = 0;
         Raffle.RaffleState rState = raffle.getRaffleState();
         // Act / Assert
         vm.expectRevert(
-            abi.encodeWithSelector(
+            abi.encodeWithSelector( // abi.encodeWithSelector because we are passing parameters
                 Raffle.Raffle__UpkeepNotNeeded.selector,
                 currentBalance,
                 numPlayers,
                 rState
             )
         );
-        raffle.performUpkeep("");
+        raffle.performUpkeep(""); // failed because we are not satisfying condition of checkUpkeep
     }
 
     function testPerformUpkeepUpdatesRaffleStateAndEmitsRequestId() public {
