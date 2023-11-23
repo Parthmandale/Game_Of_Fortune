@@ -12,7 +12,7 @@ import {VRFCoordinatorV2Mock} from "../mocks/VRFCoordinatorV2Mock.sol";
 import {CreateSubscription} from "../../script/Interactions.s.sol";
 
 contract RaffleTest is StdCheats, Test {
-    /* Errors */
+    //Events -> In Foundry tests we have to write and emit the events manually, as in can't be taken from the contract
     event RequestedRaffleWinner(uint256 indexed requestId);
     event RaffleEnter(address indexed player);
     event WinnerPicked(address indexed player);
@@ -27,13 +27,14 @@ contract RaffleTest is StdCheats, Test {
     uint32 callbackGasLimit;
     address vrfCoordinatorV2;
 
-    address public PLAYER = makeAddr("player");
+    address public PLAYER = makeAddr("player"); //gives ease to declare address -> makeAddr()
+
     uint256 public constant STARTING_USER_BALANCE = 10 ether;
 
     function setUp() external {
         DeployRaffle deployer = new DeployRaffle();
         (raffle, helperConfig) = deployer.run();
-        vm.deal(PLAYER, STARTING_USER_BALANCE);
+        vm.deal(PLAYER, STARTING_USER_BALANCE); //as this is in setUp() so it will be called before every test
 
         (
             ,
@@ -78,10 +79,9 @@ contract RaffleTest is StdCheats, Test {
     function testEmitsEventOnEntrance() public {
         // Arrange
         vm.prank(PLAYER);
-
         // Act / Assert
-        vm.expectEmit(true, false, false, false, address(raffle));
-        emit RaffleEnter(PLAYER);
+        vm.expectEmit(true, false, false, false, address(raffle)); // true = emit, false = dont emit, address(raffle) why?
+        emit RaffleEnter(PLAYER); // why emit here?
         raffle.enterRaffle{value: raffleEntranceFee}();
     }
 
@@ -89,15 +89,15 @@ contract RaffleTest is StdCheats, Test {
     function testDontAllowPlayersToEnterWhileRaffleIsCalculating() public {
         // Arrange
         vm.prank(PLAYER);
-        raffle.enterRaffle{value: raffleEntranceFee}();
-        vm.warp(block.timestamp + automationUpdateInterval + 1);
+        raffle.enterRaffle{value: raffleEntranceFee}(); // as this function is been called successfully means here raffle is OPEN
+        vm.warp(block.timestamp + automationUpdateInterval + 1); // as this function is been called successfully means here raffle is CLOSED
         vm.roll(block.number + 1);
-        raffle.performUpkeep("");
+        raffle.performUpkeep(""); // as this function is been called successfully means here raffle is CALCULATING
 
         // Act / Assert
         vm.expectRevert(Raffle.Raffle__RaffleNotOpen.selector);
         vm.prank(PLAYER);
-        raffle.enterRaffle{value: raffleEntranceFee}();
+        raffle.enterRaffle{value: raffleEntranceFee}(); // this time it will fail because raffle is CALCULATING
     }
 
     /////////////////////////
@@ -110,6 +110,7 @@ contract RaffleTest is StdCheats, Test {
 
         // Act
         (bool upkeepNeeded, ) = raffle.checkUpkeep(""); // empty parameter because we dont use it
+        // above bool upkeepNeeded is because checkUpkeep function returns two values, first is bool and second is empty
 
         // Assert
         assert(!upkeepNeeded); //false
@@ -133,10 +134,9 @@ contract RaffleTest is StdCheats, Test {
         (bool upkeepNeeded, ) = raffle.checkUpkeep("");
         // Assert
         assert(raffleState == Raffle.RaffleState.CALCULATING); // while calling enum we need to use real name of contract which here is Raffle
-        assert(upkeepNeeded == false);
+        assert(upkeepNeeded == false); // because raffle is not open as the performUpkeep function is been called
     }
 
-    // Can you implement this?
     function testCheckUpkeepReturnsFalseIfEnoughTimeHasntPassed() public {
         //Arrange
         vm.prank(PLAYER);
@@ -259,6 +259,7 @@ contract RaffleTest is StdCheats, Test {
         );
     }
 
+    // Have DOUBT in this function
     function testFulfillRandomWordsPicksAWinnerResetsAndSendsMoney()
         public
         raffleEntered
